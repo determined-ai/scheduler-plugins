@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	schedulernodeinfo "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
+	"math"
 	"sort"
 	"strconv"
 	"sync"
@@ -65,11 +66,16 @@ type Coscheduling struct {
 	gLock *sync.Mutex
 	// approvedGroups is used to track what Pods are currently being scheduled.
 	approvedGroups map[string]*waitingGroup
+	// finishedgroups tracks what groups are done
+	finishedGroups map[string]bool
+	// lastRefresh controls when the scheduler rechecks for new pods
+	lastRefresh time.Time
 }
 
 type waitingGroup struct {
 	name         string
 	minAvailable int
+	slots        int
 	priority     int32
 	tolerations  []v1.Toleration
 	selector     map[string]string
@@ -106,6 +112,7 @@ type patchStringValue struct {
 
 var _ framework.QueueSortPlugin = &Coscheduling{}
 var _ framework.PreFilterPlugin = &Coscheduling{}
+var _ framework.ScorePlugin = &Coscheduling{}
 var _ framework.PermitPlugin = &Coscheduling{}
 var _ framework.UnreservePlugin = &Coscheduling{}
 
@@ -116,8 +123,8 @@ const (
 	PodGroupName = "pod-group.scheduling.sigs.k8s.io/name"
 	// PodGroupMinAvailable specifies the minimum number of pods to be scheduled together in a pod group.
 	PodGroupMinAvailable = "pod-group.scheduling.sigs.k8s.io/min-available"
-	// PodScheduleTimeout is the number of seconds before a pod is checked to make sure it isn't deleted
-	PodScheduleTimeout = 1
+	GpuResource = "nvidia.com/gpu"
+	SystemPriority = 1000000
 )
 
 // Name returns name of the plugin. It is used in logs, etc.
@@ -144,6 +151,8 @@ func New(config *runtime.Unknown, handle framework.FrameworkHandle) (framework.P
 		args:           args,
 		gLock: 			&sync.Mutex{},
 		approvedGroups: map[string]*waitingGroup{},
+		finishedGroups: map[string]bool{},
+		lastRefresh:    time.Now(),
 	}
 	podInformer := handle.SharedInformerFactory().Core().V1().Pods().Informer()
 	podInformer.AddEventHandler(
@@ -239,8 +248,10 @@ func (cs *Coscheduling) PreFilter(ctx context.Context, state *framework.CycleSta
 	}
 
 	cs.gLock.Lock()
-	if len(cs.approvedGroups) == 0 {
+	if len(cs.approvedGroups) == 0 || time.Since(cs.lastRefresh).Seconds() > 10 {
+		cs.approvedGroups = map[string]*waitingGroup{}
 		cs.getNewWaitingGroups()
+		cs.lastRefresh = time.Now()
 	}
 	cs.gLock.Unlock()
 
@@ -256,6 +267,31 @@ func (cs *Coscheduling) PreFilter(ctx context.Context, state *framework.CycleSta
 // PreFilterExtensions returns nil.
 func (cs *Coscheduling) PreFilterExtensions() framework.PreFilterExtensions {
 	return nil
+}
+
+func (cs *Coscheduling) ScoreExtensions() framework.ScoreExtensions {
+	return nil
+}
+
+func (cs *Coscheduling) Score(ctx context.Context, state *framework.CycleState, p *v1.Pod, nodeName string) (int64, *framework.Status) {
+	if cs.calculateSlotRequest(p, true) == 1 {
+		node, err := cs.frameworkHandle.SnapshotSharedLister().NodeInfos().Get(nodeName)
+		if err == nil {
+			slotsAvailable := cs.getSlotsAvailable(node, true)
+			if slotsAvailable > 0 && slotsAvailable != cs.getMaxSlots(node, true) {
+				return 100, framework.NewStatus(framework.Success)
+			}
+		}
+	} else {
+		node, err := cs.frameworkHandle.SnapshotSharedLister().NodeInfos().Get(nodeName)
+		if err == nil {
+			slotsAvailable := cs.getSlotsAvailable(node, true)
+			if slotsAvailable > 0 && slotsAvailable == cs.getMaxSlots(node, true) {
+				return 100, framework.NewStatus(framework.Success)
+			}
+		}
+	}
+	return 0, framework.NewStatus(framework.Success)
 }
 
 // Permit is the functions invoked by the framework at "Permit" extension point.
@@ -275,6 +311,8 @@ func (cs *Coscheduling) Permit(ctx context.Context, state *framework.CycleState,
 	group.minAvailable -= 1
 	if group.minAvailable == 0 {
 		delete(cs.approvedGroups, group.name)
+		cs.finishedGroups[group.name] = true
+		cs.pruneFinishedGroups()
 	} else {
 		cs.approvedGroups[group.name] = group
 	}
@@ -378,18 +416,15 @@ func (cs *Coscheduling) podGroupInfoGC() {
 // Backfilling is enabled by default.
 // It updates the approvedGroups map with all the pods that can fit in the cluster.
 func (cs *Coscheduling) getNewWaitingGroups() {
-	hpGroups := map[string]*waitingGroup{}
+	hpGroups := map[string]*waitingGroup{} // contains the highest priority groups
 	encounteredGroups := map[string]*waitingGroup{}
-	podsList := cs.getWaitingPods("default")
+	var groupsList []*waitingGroup
+
+	podsList := cs.getWaitingPods("default") // sorted by priority
 	if podsList == nil || len(podsList.Items) == 0 {
 		return
 	}
-
-	encounteredSelectors := map[string]map[string]string{}
-	relatedGroups := map[string]string{}
-	skip := false
-	var groupsList []*waitingGroup
-
+	// translate all pods into groups
 	for _, p := range podsList.Items {
 		pgInfo, _ := cs.getOrCreatePodGroupInfo(&p, p.CreationTimestamp.Time)
 		if _, ok := encounteredGroups[pgInfo.name]; ok {
@@ -402,17 +437,24 @@ func (cs *Coscheduling) getNewWaitingGroups() {
 			priority:     *p.Spec.Priority,
 			tolerations:  p.Spec.Tolerations,
 			selector:     p.Spec.NodeSelector,
+			slots:        cs.calculateSlotRequest(&p, true),
 		}
 
 		groupsList = append(groupsList, nextGroup)
 		encounteredGroups[pgInfo.name] = nextGroup
 	}
 
+	relatedGroups := map[string]string{}
+	skip := false
+	// process groups and keep a list of the highest priority ones per "resource pool"
 	for _, pg := range groupsList {
+		if _, ok := cs.finishedGroups[pg.name]; ok {
+			continue
+		}
 		skip = false
-		if len(encounteredSelectors) > 0 {
-			for parentGroup, selector := range encounteredSelectors {
-				if cs.compareSelectors(pg.selector, selector) {
+		if len(hpGroups) > 0 {
+			for parentGroup, waitGroup := range hpGroups {
+				if cs.compareSelectors(pg.selector, waitGroup.selector) {
 					relatedGroups[pg.name] = parentGroup
 					skip = true
 					break
@@ -424,36 +466,42 @@ func (cs *Coscheduling) getNewWaitingGroups() {
 			continue
 		}
 
-		hpGroups[pg.name] = pg //these now hold the highest priority groups per resource pool
-		if len(pg.selector) != 0 {
-			encounteredSelectors[pg.name] = pg.selector
-		}
+		hpGroups[pg.name] = pg
 	}
 
 	cs.checkFits(groupsList, relatedGroups, hpGroups)
 }
 
-// checkFits is a helper function for getNewWaitingGroups that calculates fit for all pending pods
-func (cs *Coscheduling) checkFits(groupsList []*waitingGroup, selectorGroups map[string]string,
+// checkFits is a function calculates how many of the pods fit the given resources
+func (cs *Coscheduling) checkFits(groupsList []*waitingGroup, relatedGroups map[string]string,
 	hpGroups map[string]*waitingGroup) {
-	availableSlots := map[string]int{}
+	availableNodes := map[string]int{}
+	extraSlots := map[string]int{}
+	maxSlotsMap := map[string]int{}
 
 	// first process all the priority groups
 	for _, group := range hpGroups {
-		numAvailable := cs.calculateAvailableNodes(group)
+		numAvailable, freeSlots, maxSlots := cs.calculateAvailableNodes(group)
 
-		if numAvailable >= group.minAvailable {
+		if group.slots == 1 && freeSlots >= 1 { // if single slot, use free slots
 			cs.approvedGroups[group.name] = group
-			availableSlots[group.name] = numAvailable - group.minAvailable
-		} else {
-			ok, slotsFreed := cs.preemptPods(group, numAvailable)
+			freeSlots -= 1
+		} else if numAvailable >= group.minAvailable { // if not enough slots or larger exp, check if minavailable met
+			cs.approvedGroups[group.name] = group
+			numAvailable -= group.minAvailable
+			if group.slots < maxSlots {
+				freeSlots += maxSlots - group.slots
+			}
+		} else { // else preemption
+			ok, nodesFreed := cs.preemptPods(group, numAvailable)
 			if ok {
 				cs.approvedGroups[group.name] = group
-				availableSlots[group.name] = numAvailable - group.minAvailable + slotsFreed
-			} else {
-				availableSlots[group.name] = numAvailable
+				numAvailable = numAvailable - group.minAvailable + nodesFreed
 			}
 		}
+		availableNodes[group.name] = numAvailable
+		extraSlots[group.name] = freeSlots
+		maxSlotsMap[group.name] = maxSlots
 	}
 
 	// backfill action
@@ -461,57 +509,32 @@ func (cs *Coscheduling) checkFits(groupsList []*waitingGroup, selectorGroups map
 		if _, ok := hpGroups[group.name]; ok {
 			continue
 		}
-		cachedAvailable, ok := availableSlots[selectorGroups[group.name]]
-		numAvailable := cs.calculateAvailableNodes(group)
-		if ok && (numAvailable >= cachedAvailable) {
-			numAvailable = cachedAvailable
-		}
-
-		if numAvailable >= group.minAvailable {
-			cs.approvedGroups[group.name] = group
-			availableSlots[selectorGroups[group.name]] -= group.minAvailable
-		} else {
-			ok, slotsFreed := cs.preemptPods(group, numAvailable)
-			if ok {
+		hpParent, _ := relatedGroups[group.name]
+		if group.minAvailable == 1 && group.slots == 1 {
+			if i, ok := extraSlots[hpParent]; ok && i >= 1{
 				cs.approvedGroups[group.name] = group
-				availableSlots[group.name] = numAvailable - group.minAvailable + slotsFreed
+				extraSlots[hpParent] -= 1
+			} else if availableNodes[hpParent] >= 1 {
+				availableNodes[hpParent] -= 1
+				extraSlots[hpParent] += maxSlotsMap[hpParent] - 1
+				cs.approvedGroups[group.name] = group
+			}
+		} else if group.minAvailable == 1 && availableNodes[hpParent] > 1 {
+			availableNodes[hpParent] -= 1
+			maxSlots := maxSlotsMap[hpParent]
+			if group.slots < maxSlots {
+				extraSlots[hpParent] += maxSlots - group.slots
+			}
+		} else {
+			if group.minAvailable <= availableNodes[hpParent] {
+				cs.approvedGroups[group.name] = group
+				availableNodes[hpParent] -= group.minAvailable
 			}
 		}
 	}
 }
 
-func (cs *Coscheduling) getBoundPods(podGroupName, namespace string, determined bool) []*v1.Pod {
-	var pods []*v1.Pod
-	var err error
-	if podGroupName == "" {
-		pods, err = cs.frameworkHandle.SnapshotSharedLister().Pods().FilteredList(func(pod *v1.Pod) bool {
-			ok := true
-			if determined {
-				_, ok = pod.Labels["determined"]
-			}
-			if ok && pod.Namespace == namespace && pod.Spec.NodeName != "" {
-				return true
-			}
-			return false
-		}, labels.NewSelector())
-	} else {
-		pods, err = cs.frameworkHandle.SnapshotSharedLister().Pods().FilteredList(func(pod *v1.Pod) bool {
-			if pod.Labels[PodGroupName] == podGroupName && pod.Namespace == namespace &&
-				pod.Spec.NodeName != "" {
-				return true
-			}
-			return false
-		}, labels.NewSelector())
-	}
-
-	if err != nil {
-		klog.Error(err)
-		return nil
-	}
-
-	return pods
-}
-
+// getWaitingPods returns a sorted list of pods that have not been scheduled yet
 func (cs *Coscheduling) getWaitingPods(namespace string) *v1.PodList {
 	fieldSelector := fmt.Sprintf("%s,%s", "status.phase=Pending",
 		fields.SelectorFromSet(fields.Set{"spec.nodeName": ""}).String())
@@ -526,7 +549,7 @@ func (cs *Coscheduling) getWaitingPods(namespace string) *v1.PodList {
 		return nil
 	}
 
-	sort.Slice(podsList.Items, func(i, j int) bool { // TODO: fix this
+	sort.Slice(podsList.Items, func(i, j int) bool {
 		pgInfo1, _ := cs.getOrCreatePodGroupInfo(&podsList.Items[i], podsList.Items[i].CreationTimestamp.Time)
 		pgInfo2, _ := cs.getOrCreatePodGroupInfo(&podsList.Items[j], podsList.Items[j].CreationTimestamp.Time)
 
@@ -564,19 +587,14 @@ func (cs *Coscheduling) getAllNodes() []*schedulernodeinfo.NodeInfo {
 	return nodes
 }
 
-func (cs *Coscheduling) getTaints(nodeName string) []v1.Taint {
-	node, err := cs.frameworkHandle.SnapshotSharedLister().NodeInfos().Get(nodeName)
-	if err != nil {
-		klog.Error(err)
-		return nil
+func (cs *Coscheduling) fitSelector(selector map[string]string, node *v1.Node) bool {
+	for k, v := range selector {
+		v2, ok := node.Labels[k]
+		if !ok || v != v2 {
+			return false
+		}
 	}
-
-	taints, err := node.Taints()
-	if err != nil {
-		klog.Error(err)
-		return nil
-	}
-	return taints
+	return true
 }
 
 func (cs *Coscheduling) compareSelectors(s1, s2 map[string]string) bool {
@@ -652,89 +670,158 @@ func (cs *Coscheduling) preemptionTag(pod *v1.Pod) {
 	}
 }
 
+// preemptPods returns a boolean that indicates whether or not preemption succeeded
+// as well as an integer indicating how many nodes it has vacated
 func (cs *Coscheduling) preemptPods(group *waitingGroup, available int) (bool, int) {
 	klog.V(3).Infof("Preemption required! Finding preemption candidates")
-	podsList := cs.getBoundPods("", "default", true)
-	pgMinAvailable := group.minAvailable
 
-	sort.Slice(podsList, func(i, j int) bool {
-		if *podsList[i].Spec.Priority == *podsList[j].Spec.Priority {
-			pgNamei, oki := podsList[i].Labels[PodGroupName]
-			pgNamej, okj := podsList[j].Labels[PodGroupName]
-			if !oki && !okj {
-				return podsList[j].CreationTimestamp.After(podsList[i].CreationTimestamp.Time)
-			} else if !oki {
-				return true
-			} else if !okj {
-				return false
+	nodes := cs.getAllNodes()
+	if nodes == nil {
+		klog.V(3).Infof("There are no nodes ready.")
+		return false, 0
+	}
+
+	//selectedNodes contains the nodes that fit the group's selector and taints
+	selectedNodes := map[string]*schedulernodeinfo.NodeInfo{}
+	for _, node := range nodes {
+		if cs.fitSelector(group.selector, node.Node()) {
+			taint, err := node.Taints()
+			if err != nil {
+				continue
 			}
-
-			return pgNamei < pgNamej
-		}
-		return *podsList[i].Spec.Priority < *podsList[j].Spec.Priority
-	})
-
-	freed := 0
-	lastPg := ""
-	preemptionCandidates := map[int]*v1.Pod{}
-	for _, p := range podsList {
-		if *p.Spec.Priority >= group.priority {
-			break
-		} else if lastPg != "" && lastPg != p.Labels[PodGroupName] {
-			break
-		} else if _, ok := p.Labels["determined-preemption"]; ok {
-			continue
-		} else {
-			if cs.compareSelectors(group.selector, p.Spec.NodeSelector) {
-				taints := cs.getTaints(p.Spec.NodeName)
-				if taints != nil && cs.doesTolerate(p.Spec.Tolerations, taints) {
-					preemptionCandidates[freed] = p
-					freed += 1
-				}
+			if cs.doesTolerate(group.tolerations, taint) && cs.getUsedSlots(node, true) > 0{
+				selectedNodes[node.Node().Name] = node
 			}
-		}
-
-		if freed+available >= pgMinAvailable && lastPg == "" {
-			lastPg = p.Labels[PodGroupName]
 		}
 	}
 
-	if freed+available < pgMinAvailable {
+	needed := group.minAvailable - available
+
+	if len(selectedNodes) < needed {
+		klog.V(3).Infof("No preemption occurred. There are not enough nodes in the node pool.")
+		return false, 0
+	}
+
+	// for each node, find the highest priority pod and use that for preemption metric
+	// priorities contains the highest priority pod for each node
+	priorities := map[string]int{}
+	timestamps := map[string]time.Time{}
+	for _, node := range nodes {
+		maximum := 0
+		ts := time.Now()
+		if cs.getUsedSlots(node, true) == 0 {
+			continue
+		}
+		for _, pod := range node.Pods() {
+			pgInfo, _ := cs.getOrCreatePodGroupInfo(pod, time.Now())
+			if _, ok := pod.Labels["determined-system"]; ok {
+				maximum = SystemPriority
+			} else if _, ok := pod.Labels["determined-cmd"]; ok {
+				maximum = SystemPriority
+			} else if _, ok := pod.Labels["determined"]; !ok { //only count determined pods for preemption
+				continue
+			}
+			if int(pgInfo.priority) > maximum {
+				maximum = int(*pod.Spec.Priority)
+				ts = pgInfo.timestamp
+			} else if int(pgInfo.priority) == maximum && pgInfo.timestamp.Before(ts) {
+				ts = pgInfo.timestamp
+			}
+		}
+		priorities[node.Node().Name] = maximum
+		timestamps[node.Node().Name] = ts
+	}
+
+	// the lowest priority and most recent node gets preempted first
+	var nodesToPreempt []string
+	for needed > 0 {
+		minKey := ""
+		minimum := math.MaxInt32
+		ts := time.Now()
+		for k, v := range priorities {
+			if v < minimum {
+				minimum = v
+				minKey = k
+				ts, _ = timestamps[k]
+			} else if v == minimum && timestamps[k].After(ts) {
+				minKey = k
+				ts, _ = timestamps[k]
+			}
+		}
+		if minimum >= int(group.priority) {
+			break
+		}
+		nodesToPreempt = append(nodesToPreempt, minKey)
+		delete(priorities, minKey)
+		needed -= 1
+	}
+
+	if needed > 0 {
 		klog.V(3).Infof("No preemption occurred. Not enough nodes are able to be freed")
 		return false, 0
 	}
 
-	for _, p := range preemptionCandidates {
-		cs.preemptionTag(p)
+	// start preemption for nodes in the list
+	preemptionGroups := map[string]bool{}
+	for _, nodeName := range nodesToPreempt {
+		klog.V(3).Infof("Preempting pods on node %v", nodeName)
+		node, _ := selectedNodes[nodeName]
+		for _, pod := range node.Pods() {
+			if _, ok := pod.Labels["determined"]; ok { //only preempt determined pods
+				pgInfo, _ := cs.getOrCreatePodGroupInfo(pod, time.Now())
+				preemptionGroups[pgInfo.name] = true
+				cs.preemptionTag(pod)
+			}
+		}
 	}
 
-	klog.V(3).Infof("Preemption of lower priority pods is in progress")
-	return true, freed
-}
-
-// calculateAvailableNodes calculates the number of nodes available for scheduling
-// It returns the number of nodes available now that fit the pod's selector and tolerances
-func (cs *Coscheduling) calculateAvailableNodes(podgroup *waitingGroup) int {
-	klog.V(9).Infof("Finding fits for podgroup %v\n", podgroup.name)
-	assignedNodes := map[string]bool{}
-	podsList := cs.getBoundPods("", "default", false)
-	for _, pod := range podsList {
-		assignedNodes[pod.Spec.NodeName] = true
-	}
-
-	nodesAvailable := 0
-
-	for _, node := range cs.getAllNodes() {
-		failedSelector := false
-		for k, v := range podgroup.selector {
-			v2, ok := node.Node().Labels[k]
-			if !ok || v != v2 {
-				klog.V(9).Infof("NODE %v doesn't have the right label\n", node.Node().Name)
-				failedSelector = true
+	// priorities now contains the nodes that have not been selected for preemption yet
+	// Check to make sure that for every pod that is preempted, we also preempt their entire pod group
+	additionalPreemptions := 0
+	for name, _ := range priorities {
+		node, _ := selectedNodes[name]
+		shouldPreempt := false
+		for _, pod := range node.Pods() {
+			pgInfo, _ := cs.getOrCreatePodGroupInfo(pod, time.Now())
+			if _, ok := preemptionGroups[pgInfo.name]; ok {
+				shouldPreempt = true
 				break
 			}
 		}
-		if failedSelector {
+		if shouldPreempt {
+			klog.V(3).Infof("Preempting pods on node %v", node.Node().Name)
+			for _, pod := range node.Pods() {
+				if _, ok := pod.Labels["determined"]; ok {
+					cs.preemptionTag(pod)
+				}
+			}
+			additionalPreemptions += 1
+		}
+	}
+
+	return true, group.minAvailable - available + additionalPreemptions
+}
+
+// calculateAvailableNodes calculates the number of nodes available for scheduling
+// It returns three ints:
+// the number of nodes available now that fit the pod's selector and tolerances,
+// the number of slots available on partially filled nodes
+// and the maxSlots available on the nodes
+func (cs *Coscheduling) calculateAvailableNodes(podgroup *waitingGroup) (int, int, int) {
+	klog.V(9).Infof("Finding fits for podgroup %v\n", podgroup.name)
+
+	nodesAvailable := 0
+	freeSlots := 0
+	returnedMaxSlots := 0
+
+	nodes := cs.getAllNodes()
+	if nodes == nil {
+		return 0, 0, 0
+	}
+
+	for _, node := range nodes {
+		if !cs.fitSelector(podgroup.selector, node.Node()) {
+			klog.V(9).Infof("NODE %v doesn't have the right label\n", node.Node().Name)
 			continue
 		}
 
@@ -747,11 +834,75 @@ func (cs *Coscheduling) calculateAvailableNodes(podgroup *waitingGroup) int {
 			klog.V(9).Infof("NODE %v doesn't fit\n", node.Node().Name)
 			continue
 		}
-		// if it does tolerate and there is not an assigned node to it, we're ok.
-		if _, ok := assignedNodes[node.Node().Name]; !ok {
-			klog.V(9).Infof("NODE fits:", node.Node().Name)
+		// if node passes the selector and tolerances, check if there are slots available
+		slotsAvailable := cs.getSlotsAvailable(node, true)
+		maxSlots := cs.getMaxSlots(node, true)
+		if maxSlots > returnedMaxSlots {
+			returnedMaxSlots = maxSlots
+		}
+
+		if slotsAvailable > 0 && slotsAvailable == maxSlots {
+			// the node is fully available
 			nodesAvailable += 1
+		} else {
+			freeSlots += slotsAvailable
 		}
 	}
-	return nodesAvailable
+
+	return nodesAvailable, freeSlots, returnedMaxSlots
+}
+
+// calculateSlotRequest returns the slots requested by the pod
+func (cs *Coscheduling) calculateSlotRequest(pod *v1.Pod, gpu bool) int {
+	slotsNeeded := 0
+	for _, c := range pod.Spec.Containers {
+		if gpu {
+			slots, ok := c.Resources.Requests[GpuResource]
+			if !ok {
+				continue
+			}
+			slotsNeeded += int(slots.Value())
+		} else {
+			slotsNeeded += int(c.Resources.Limits.Cpu().Value())
+		}
+	}
+
+	return slotsNeeded
+}
+
+func (cs *Coscheduling) getUsedSlots(n *schedulernodeinfo.NodeInfo, gpu bool) int {
+	usedSlots := 0
+	for _, pod := range n.Pods() {
+		usedSlots += cs.calculateSlotRequest(pod, gpu)
+	}
+	return usedSlots
+}
+
+func (cs *Coscheduling) getSlotsAvailable(n *schedulernodeinfo.NodeInfo, gpu bool) int {
+	total := cs.getMaxSlots(n, gpu)
+	if total == 0 {
+		return 0
+	}
+	return total - cs.getUsedSlots(n, gpu)
+}
+
+func (cs *Coscheduling) getMaxSlots(n *schedulernodeinfo.NodeInfo, gpu bool) int {
+	if gpu {
+		slots, ok := n.Node().Status.Allocatable[GpuResource]
+		if !ok {
+			return 0
+		}
+		return int(slots.Value())
+	}
+	return int(n.Node().Status.Capacity.Cpu().Value())
+}
+
+func (cs *Coscheduling) pruneFinishedGroups() {
+	newFinishedGroups := map[string]bool{}
+	for _, pod := range cs.getWaitingPods("default").Items {
+		if _, ok := cs.finishedGroups[pod.Name]; ok {
+			newFinishedGroups[pod.Name] = true
+		}
+	}
+	cs.finishedGroups = newFinishedGroups
 }
