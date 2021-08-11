@@ -112,9 +112,9 @@ type patchStringValue struct {
 
 var _ framework.QueueSortPlugin = &Coscheduling{}
 var _ framework.PreFilterPlugin = &Coscheduling{}
-var _ framework.ScorePlugin = &Coscheduling{}
 var _ framework.PermitPlugin = &Coscheduling{}
 var _ framework.UnreservePlugin = &Coscheduling{}
+var _ framework.ScorePlugin = &Coscheduling{}
 
 const (
 	// Name is the name of the plugin used in Registry and configurations.
