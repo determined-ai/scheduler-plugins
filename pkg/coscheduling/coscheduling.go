@@ -62,7 +62,7 @@ type Coscheduling struct {
 	// clock is used to get the current time.
 	clock util.Clock
 	// args is coscheduling parameters.
-	args Args
+	args  Args
 	gLock *sync.Mutex
 	// approvedGroups is used to track what Pods are currently being scheduled.
 	approvedGroups map[string]*waitingGroup
@@ -100,6 +100,8 @@ type PodGroupInfo struct {
 	minAvailable int
 	// deletionTimestamp stores the timestamp when the PodGroup marked as expired.
 	deletionTimestamp *time.Time
+	// position stores the spot in the queue of the pod relative to others with the same priority
+	position int
 }
 
 // pathStringValue is a struct for the json payload passed to the k8s Patch function for pods.
@@ -123,8 +125,9 @@ const (
 	PodGroupName = "pod-group.scheduling.sigs.k8s.io/name"
 	// PodGroupMinAvailable specifies the minimum number of pods to be scheduled together in a pod group.
 	PodGroupMinAvailable = "pod-group.scheduling.sigs.k8s.io/min-available"
-	GpuResource = "nvidia.com/gpu"
-	SystemPriority = 1000000
+	QPosition            = "determined-queue-position"
+	GpuResource          = "nvidia.com/gpu"
+	SystemPriority       = 1000000
 )
 
 // Name returns name of the plugin. It is used in logs, etc.
@@ -149,7 +152,7 @@ func New(config *runtime.Unknown, handle framework.FrameworkHandle) (framework.P
 		podLister:      podLister,
 		clock:          util.RealClock{},
 		args:           args,
-		gLock: 			&sync.Mutex{},
+		gLock:          &sync.Mutex{},
 		approvedGroups: map[string]*waitingGroup{},
 		finishedGroups: map[string]bool{},
 		lastRefresh:    time.Now(),
@@ -197,7 +200,7 @@ func (cs *Coscheduling) Less(podInfo1, podInfo2 *framework.PodInfo) bool {
 // PodGroupMinAvailable is greater than one. It also returns the pod's
 // PodGroupMinAvailable (0 if not specified).
 func (cs *Coscheduling) getOrCreatePodGroupInfo(pod *v1.Pod, ts time.Time) (*PodGroupInfo, int) {
-	podGroupName, podMinAvailable, _ := GetPodGroupLabels(pod)
+	podGroupName, podMinAvailable, qPosition, _ := GetPodGroupLabels(pod)
 
 	var pgKey string
 	if len(podGroupName) > 0 && podMinAvailable > 0 {
@@ -227,6 +230,7 @@ func (cs *Coscheduling) getOrCreatePodGroupInfo(pod *v1.Pod, ts time.Time) (*Pod
 		priority:     podutil.GetPodPriority(pod),
 		timestamp:    ts,
 		minAvailable: podMinAvailable,
+		position:     qPosition,
 	}
 
 	// If it's not a regular Pod, store the PodGroup in PodGroupInfos
@@ -338,25 +342,34 @@ func (cs *Coscheduling) Unreserve(ctx context.Context, state *framework.CycleSta
 
 // GetPodGroupLabels checks if the pod belongs to a PodGroup. If so, it will return the
 // podGroupName, minAvailable of the PodGroup. If not, it will return "" and 0.
-func GetPodGroupLabels(pod *v1.Pod) (string, int, error) {
+func GetPodGroupLabels(pod *v1.Pod) (string, int, int, error) {
 	podGroupName, exist := pod.Labels[PodGroupName]
 	if !exist || len(podGroupName) == 0 {
-		return "", 0, nil
+		return "", 0, 0, nil
 	}
 	minAvailable, exist := pod.Labels[PodGroupMinAvailable]
 	if !exist || len(minAvailable) == 0 {
-		return "", 0, nil
+		return "", 0, 0, nil
 	}
 	minNum, err := strconv.Atoi(minAvailable)
 	if err != nil {
 		klog.Errorf("PodGroup %v/%v : PodGroupMinAvailable %v is invalid", pod.Namespace, pod.Name, minAvailable)
-		return "", 0, err
+		return "", 0, 0, err
 	}
 	if minNum < 1 {
 		klog.Errorf("PodGroup %v/%v : PodGroupMinAvailable %v is less than 1", pod.Namespace, pod.Name, minAvailable)
-		return "", 0, err
+		return "", 0, 0, err
 	}
-	return podGroupName, minNum, nil
+	qLabel, exist := pod.Labels[QPosition]
+	if !exist {
+		return podGroupName, minNum, -1, nil
+	}
+	qPosition, err := strconv.Atoi(qLabel)
+	if err != nil {
+		klog.Errorf("PodGroup %v/%v : PodGroup Queue Position is invalid", pod.Namespace, pod.Name, qLabel)
+		return podGroupName, minNum, -1, err
+	}
+	return podGroupName, minNum, qPosition, nil
 }
 
 func (cs *Coscheduling) calculateTotalPods(podGroupName, namespace string) int {
@@ -373,7 +386,7 @@ func (cs *Coscheduling) calculateTotalPods(podGroupName, namespace string) int {
 // markPodGroupAsExpired set the deletionTimestamp of PodGroup to mark PodGroup as expired.
 func (cs *Coscheduling) markPodGroupAsExpired(obj interface{}) {
 	pod := obj.(*v1.Pod)
-	podGroupName, podMinAvailable, _ := GetPodGroupLabels(pod)
+	podGroupName, podMinAvailable, _, _ := GetPodGroupLabels(pod)
 	if len(podGroupName) == 0 || podMinAvailable == 0 {
 		return
 	}
@@ -394,7 +407,7 @@ func (cs *Coscheduling) markPodGroupAsExpired(obj interface{}) {
 
 // responsibleForPod selects pod that belongs to a PodGroup.
 func responsibleForPod(pod *v1.Pod) bool {
-	podGroupName, podMinAvailable, _ := GetPodGroupLabels(pod)
+	podGroupName, podMinAvailable, _, _ := GetPodGroupLabels(pod)
 	if len(podGroupName) == 0 || podMinAvailable == 0 {
 		return false
 	}
@@ -511,7 +524,7 @@ func (cs *Coscheduling) checkFits(groupsList []*waitingGroup, relatedGroups map[
 		}
 		hpParent, _ := relatedGroups[group.name]
 		if group.minAvailable == 1 && group.slots == 1 {
-			if i, ok := extraSlots[hpParent]; ok && i >= 1{
+			if i, ok := extraSlots[hpParent]; ok && i >= 1 {
 				cs.approvedGroups[group.name] = group
 				extraSlots[hpParent] -= 1
 			} else if availableNodes[hpParent] >= 1 {
@@ -565,6 +578,16 @@ func (cs *Coscheduling) comparePgInfo(pgInfo1, pgInfo2 *PodGroupInfo) bool {
 
 	if priority1 != priority2 {
 		return priority1 > priority2
+	}
+
+	position1 := pgInfo1.position
+	position2 := pgInfo2.position
+	if position1 != position2 {
+		if position1 != -1 && position2 != -1 {
+			return position1 < position2
+		} else {
+			return position1 > position2 //if one of them is -1, treat -1 as if it's at the end of the queue
+		}
 	}
 
 	time1 := pgInfo1.timestamp
@@ -689,7 +712,7 @@ func (cs *Coscheduling) preemptPods(group *waitingGroup, available int) (bool, i
 			if err != nil {
 				continue
 			}
-			if cs.doesTolerate(group.tolerations, taint) && cs.getUsedSlots(node, true) > 0{
+			if cs.doesTolerate(group.tolerations, taint) && cs.getUsedSlots(node, true) > 0 {
 				selectedNodes[node.Node().Name] = node
 			}
 		}
