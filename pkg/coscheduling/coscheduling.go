@@ -79,6 +79,7 @@ type waitingGroup struct {
 	priority     int32
 	tolerations  []v1.Toleration
 	selector     map[string]string
+	position	 int
 }
 
 // PodGroupInfo is a wrapper to a PodGroup with additional information.
@@ -451,6 +452,7 @@ func (cs *Coscheduling) getNewWaitingGroups() {
 			tolerations:  p.Spec.Tolerations,
 			selector:     p.Spec.NodeSelector,
 			slots:        cs.calculateSlotRequest(&p, true),
+			position:     pgInfo.position,
 		}
 
 		groupsList = append(groupsList, nextGroup)
@@ -728,9 +730,11 @@ func (cs *Coscheduling) preemptPods(group *waitingGroup, available int) (bool, i
 	// for each node, find the highest priority pod and use that for preemption metric
 	// priorities contains the highest priority pod for each node
 	priorities := map[string]int{}
+	queueOrders := map[string]int{}
 	timestamps := map[string]time.Time{}
 	for _, node := range nodes {
 		maximum := 0
+		bestPos := -1
 		ts := time.Now()
 		if cs.getUsedSlots(node, true) == 0 {
 			continue
@@ -739,39 +743,53 @@ func (cs *Coscheduling) preemptPods(group *waitingGroup, available int) (bool, i
 			pgInfo, _ := cs.getOrCreatePodGroupInfo(pod, time.Now())
 			if _, ok := pod.Labels["determined-system"]; ok {
 				maximum = SystemPriority
+				bestPos = 0
 			} else if _, ok := pod.Labels["determined-cmd"]; ok {
 				maximum = SystemPriority
+				bestPos = 0
 			} else if _, ok := pod.Labels["determined"]; !ok { //only count determined pods for preemption
 				continue
 			}
 			if int(pgInfo.priority) > maximum {
 				maximum = int(*pod.Spec.Priority)
+				bestPos = pgInfo.position
 				ts = pgInfo.timestamp
 			} else if int(pgInfo.priority) == maximum && pgInfo.timestamp.Before(ts) {
 				ts = pgInfo.timestamp
 			}
 		}
 		priorities[node.Node().Name] = maximum
+		queueOrders[node.Node().Name] = bestPos
 		timestamps[node.Node().Name] = ts
 	}
 
 	// the lowest priority and most recent node gets preempted first
 	var nodesToPreempt []string
 	for needed > 0 {
+		minQPos := -1
 		minKey := ""
 		minimum := math.MaxInt32
 		ts := time.Now()
 		for k, v := range priorities {
+			if minQPos == -1 {
+				minQPos = queueOrders[k]
+			}
 			if v < minimum {
 				minimum = v
 				minKey = k
 				ts, _ = timestamps[k]
-			} else if v == minimum && timestamps[k].After(ts) {
+			} else if v == minimum && queueOrders[k] < minQPos {
+				minKey = k
+				minQPos = queueOrders[k]
+				ts, _ = timestamps[k]
+			} else if v == minimum && queueOrders[k] == minQPos  && timestamps[k].After(ts) {
 				minKey = k
 				ts, _ = timestamps[k]
 			}
 		}
 		if minimum >= int(group.priority) {
+			break
+		} else if minimum == int(group.priority) && minQPos <= group.position {
 			break
 		}
 		nodesToPreempt = append(nodesToPreempt, minKey)
