@@ -79,7 +79,7 @@ type waitingGroup struct {
 	priority     int32
 	tolerations  []v1.Toleration
 	selector     map[string]string
-	position	 int
+	position     int
 }
 
 // PodGroupInfo is a wrapper to a PodGroup with additional information.
@@ -342,7 +342,7 @@ func (cs *Coscheduling) Unreserve(ctx context.Context, state *framework.CycleSta
 }
 
 // GetPodGroupLabels checks if the pod belongs to a PodGroup. If so, it will return the
-// podGroupName, minAvailable of the PodGroup. If not, it will return "" and 0.
+// podGroupName, minAvailable, queue position of the PodGroup. If not, it will return "", 0, and 0.
 func GetPodGroupLabels(pod *v1.Pod) (string, int, int, error) {
 	podGroupName, exist := pod.Labels[PodGroupName]
 	if !exist || len(podGroupName) == 0 {
@@ -782,7 +782,7 @@ func (cs *Coscheduling) preemptPods(group *waitingGroup, available int) (bool, i
 				minKey = k
 				minQPos = queueOrders[k]
 				ts, _ = timestamps[k]
-			} else if v == minimum && queueOrders[k] == minQPos  && timestamps[k].After(ts) {
+			} else if v == minimum && queueOrders[k] == minQPos && timestamps[k].After(ts) {
 				minKey = k
 				ts, _ = timestamps[k]
 			}
