@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/shopspring/decimal"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -79,7 +80,7 @@ type waitingGroup struct {
 	priority     int32
 	tolerations  []v1.Toleration
 	selector     map[string]string
-	position     int
+	position     decimal.Decimal
 }
 
 // PodGroupInfo is a wrapper to a PodGroup with additional information.
@@ -102,7 +103,7 @@ type PodGroupInfo struct {
 	// deletionTimestamp stores the timestamp when the PodGroup marked as expired.
 	deletionTimestamp *time.Time
 	// position stores the spot in the queue of the pod relative to others with the same priority
-	position int
+	position decimal.Decimal
 }
 
 // pathStringValue is a struct for the json payload passed to the k8s Patch function for pods.
@@ -213,10 +214,23 @@ func (cs *Coscheduling) getOrCreatePodGroupInfo(pod *v1.Pod, ts time.Time) (*Pod
 		value, exist := cs.podGroupInfos.Load(pgKey)
 		if exist {
 			pgInfo := value.(*PodGroupInfo)
+			changed := false
 			// If the deleteTimestamp isn't nil, it means that the PodGroup is marked as expired before.
 			// So we need to set the deleteTimestamp as nil again to mark the PodGroup active.
 			if pgInfo.deletionTimestamp != nil {
 				pgInfo.deletionTimestamp = nil
+				changed = true
+			}
+			if !pgInfo.position.Equal(qPosition) {
+				pgInfo.position = qPosition
+				changed = true
+			}
+			priority := podutil.GetPodPriority(pod)
+			if pgInfo.priority != priority {
+				pgInfo.priority = priority
+				changed = true
+			}
+			if changed {
 				cs.podGroupInfos.Store(pgKey, pgInfo)
 			}
 			return pgInfo, podMinAvailable
@@ -253,7 +267,7 @@ func (cs *Coscheduling) PreFilter(ctx context.Context, state *framework.CycleSta
 	}
 
 	cs.gLock.Lock()
-	if len(cs.approvedGroups) == 0 || time.Since(cs.lastRefresh).Seconds() > 10 {
+	if len(cs.approvedGroups) == 0 || time.Since(cs.lastRefresh).Seconds() > 1 {
 		cs.approvedGroups = map[string]*waitingGroup{}
 		cs.getNewWaitingGroups()
 		cs.lastRefresh = time.Now()
@@ -343,32 +357,32 @@ func (cs *Coscheduling) Unreserve(ctx context.Context, state *framework.CycleSta
 
 // GetPodGroupLabels checks if the pod belongs to a PodGroup. If so, it will return the
 // podGroupName, minAvailable, queue position of the PodGroup. If not, it will return "", 0, and 0.
-func GetPodGroupLabels(pod *v1.Pod) (string, int, int, error) {
+func GetPodGroupLabels(pod *v1.Pod) (string, int, decimal.Decimal, error) {
 	podGroupName, exist := pod.Labels[PodGroupName]
 	if !exist || len(podGroupName) == 0 {
-		return "", 0, 0, nil
+		return "", 0, decimal.Zero, nil
 	}
 	minAvailable, exist := pod.Labels[PodGroupMinAvailable]
 	if !exist || len(minAvailable) == 0 {
-		return "", 0, 0, nil
+		return "", 0, decimal.Zero, nil
 	}
 	minNum, err := strconv.Atoi(minAvailable)
 	if err != nil {
 		klog.Errorf("PodGroup %v/%v : PodGroupMinAvailable %v is invalid", pod.Namespace, pod.Name, minAvailable)
-		return "", 0, 0, err
+		return "", 0, decimal.Zero, err
 	}
 	if minNum < 1 {
 		klog.Errorf("PodGroup %v/%v : PodGroupMinAvailable %v is less than 1", pod.Namespace, pod.Name, minAvailable)
-		return "", 0, 0, err
+		return "", 0, decimal.Zero, err
 	}
 	qLabel, exist := pod.Labels[QPosition]
 	if !exist {
-		return podGroupName, minNum, -1, nil
+		return podGroupName, minNum, decimal.Zero, nil
 	}
-	qPosition, err := strconv.Atoi(qLabel)
+	qPosition, err := decimal.NewFromString(qLabel)
 	if err != nil {
 		klog.Errorf("PodGroup %v/%v : PodGroup Queue Position is invalid", pod.Namespace, pod.Name, qLabel)
-		return podGroupName, minNum, -1, err
+		return podGroupName, minNum, decimal.Zero, err
 	}
 	return podGroupName, minNum, qPosition, nil
 }
@@ -441,10 +455,6 @@ func (cs *Coscheduling) getNewWaitingGroups() {
 	// translate all pods into groups
 	for _, p := range podsList.Items {
 		pgInfo, _ := cs.getOrCreatePodGroupInfo(&p, p.CreationTimestamp.Time)
-		if _, ok := encounteredGroups[pgInfo.name]; ok {
-			continue
-		}
-
 		nextGroup := &waitingGroup{
 			name:         pgInfo.name,
 			minAvailable: pgInfo.minAvailable,
@@ -454,8 +464,10 @@ func (cs *Coscheduling) getNewWaitingGroups() {
 			slots:        cs.calculateSlotRequest(&p, true),
 			position:     pgInfo.position,
 		}
+		if _, ok := encounteredGroups[pgInfo.name]; !ok {
+			groupsList = append(groupsList, nextGroup)
+		}
 
-		groupsList = append(groupsList, nextGroup)
 		encounteredGroups[pgInfo.name] = nextGroup
 	}
 
@@ -584,11 +596,11 @@ func (cs *Coscheduling) comparePgInfo(pgInfo1, pgInfo2 *PodGroupInfo) bool {
 
 	position1 := pgInfo1.position
 	position2 := pgInfo2.position
-	if position1 != position2 {
-		if position1 != -1 && position2 != -1 {
-			return position1 < position2
+	if !position1.Equal(position2) {
+		if !position1.Equal(decimal.Zero) && !position2.Equal(decimal.Zero) {
+			return position1.LessThan(position2)
 		} else {
-			return position1 > position2 //if one of them is -1, treat -1 as if it's at the end of the queue
+			return position1.GreaterThan(position2) //if one of them is zero, treat the zero as if it's at the end of the queue
 		}
 	}
 
@@ -723,18 +735,18 @@ func (cs *Coscheduling) preemptPods(group *waitingGroup, available int) (bool, i
 	needed := group.minAvailable - available
 
 	if len(selectedNodes) < needed {
-		klog.V(3).Infof("No preemption occurred. There are not enough nodes in the node pool.")
+		klog.V(3).Infof("No preemption occurred. Needed %d nodes, but only %d available.", needed, len(selectedNodes))
 		return false, 0
 	}
 
 	// for each node, find the highest priority pod and use that for preemption metric
 	// priorities contains the highest priority pod for each node
 	priorities := map[string]int{}
-	queueOrders := map[string]int{}
+	queueOrders := map[string]decimal.Decimal{}
 	timestamps := map[string]time.Time{}
 	for _, node := range nodes {
 		maximum := 0
-		bestPos := -1
+		bestPos := decimal.Zero
 		ts := time.Now()
 		if cs.getUsedSlots(node, true) == 0 {
 			continue
@@ -743,10 +755,10 @@ func (cs *Coscheduling) preemptPods(group *waitingGroup, available int) (bool, i
 			pgInfo, _ := cs.getOrCreatePodGroupInfo(pod, time.Now())
 			if _, ok := pod.Labels["determined-system"]; ok {
 				maximum = SystemPriority
-				bestPos = 0
+				bestPos = decimal.Zero
 			} else if _, ok := pod.Labels["determined-cmd"]; ok {
 				maximum = SystemPriority
-				bestPos = 0
+				bestPos = decimal.Zero
 			} else if _, ok := pod.Labels["determined"]; !ok { //only count determined pods for preemption
 				continue
 			}
@@ -766,19 +778,19 @@ func (cs *Coscheduling) preemptPods(group *waitingGroup, available int) (bool, i
 	// the lowest priority and most recent node gets preempted first
 	var nodesToPreempt []string
 	for needed > 0 {
-		minQPos := -1
+		minQPos := decimal.Zero
 		minKey := ""
 		minimum := math.MaxInt32
 		ts := time.Now()
 		for k, v := range priorities {
-			if minQPos == -1 {
+			if minQPos.Equal(decimal.Zero) {
 				minQPos = queueOrders[k]
 			}
 			if v < minimum {
 				minimum = v
 				minKey = k
 				ts, _ = timestamps[k]
-			} else if v == minimum && queueOrders[k] < minQPos {
+			} else if v == minimum && queueOrders[k].LessThan(minQPos) {
 				minKey = k
 				minQPos = queueOrders[k]
 				ts, _ = timestamps[k]
@@ -787,9 +799,9 @@ func (cs *Coscheduling) preemptPods(group *waitingGroup, available int) (bool, i
 				ts, _ = timestamps[k]
 			}
 		}
-		if minimum >= int(group.priority) {
+		if minimum > int(group.priority) {
 			break
-		} else if minimum == int(group.priority) && minQPos <= group.position {
+		} else if minimum == int(group.priority) && minQPos.LessThanOrEqual(group.position){
 			break
 		}
 		nodesToPreempt = append(nodesToPreempt, minKey)
