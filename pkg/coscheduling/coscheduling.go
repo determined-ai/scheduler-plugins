@@ -266,8 +266,18 @@ func (cs *Coscheduling) PreFilter(ctx context.Context, state *framework.CycleSta
 		return framework.NewStatus(framework.Success, "")
 	}
 
+	if time.Since(cs.lastRefresh) > 30 {
+		// check the groups to see if they have pods alive
+		for group := range cs.approvedGroups {
+			if cs.calculateTotalPods(group, "default") == 0 {
+				delete(cs.approvedGroups, group)
+			}
+		}
+		cs.lastRefresh = time.Now()
+	}
+
 	cs.gLock.Lock()
-	if len(cs.approvedGroups) == 0 || time.Since(cs.lastRefresh).Seconds() > 1 {
+	if len(cs.approvedGroups) == 0 {
 		cs.approvedGroups = map[string]*waitingGroup{}
 		cs.getNewWaitingGroups()
 		cs.lastRefresh = time.Now()
