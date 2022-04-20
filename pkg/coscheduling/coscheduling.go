@@ -266,7 +266,7 @@ func (cs *Coscheduling) PreFilter(ctx context.Context, state *framework.CycleSta
 		return framework.NewStatus(framework.Success, "")
 	}
 
-	if time.Since(cs.lastRefresh) > 30 {
+	if time.Since(cs.lastRefresh) > 5 {
 		// check the groups to see if they have pods alive
 		for group := range cs.approvedGroups {
 			if cs.calculateTotalPods(group, "default") == 0 {
@@ -391,7 +391,7 @@ func GetPodGroupLabels(pod *v1.Pod) (string, int, decimal.Decimal, error) {
 	}
 	qPosition, err := decimal.NewFromString(qLabel)
 	if err != nil {
-		klog.Errorf("PodGroup %v/%v : PodGroup Queue Position is invalid", pod.Namespace, pod.Name, qLabel)
+		klog.Errorf("PodGroup %v/%v : %s", pod.Namespace, pod.Name, err)
 		return podGroupName, minNum, decimal.Zero, err
 	}
 	return podGroupName, minNum, qPosition, nil
