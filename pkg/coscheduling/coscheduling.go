@@ -266,7 +266,7 @@ func (cs *Coscheduling) PreFilter(ctx context.Context, state *framework.CycleSta
 		return framework.NewStatus(framework.Success, "")
 	}
 
-	if time.Since(cs.lastRefresh) > 5 {
+	if time.Since(cs.lastRefresh).Seconds() > 5 {
 		// check the groups to see if they have pods alive
 		for group := range cs.approvedGroups {
 			if cs.calculateTotalPods(group, "default") == 0 {
