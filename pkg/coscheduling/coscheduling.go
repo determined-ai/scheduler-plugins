@@ -763,14 +763,15 @@ func (cs *Coscheduling) preemptPods(group *waitingGroup, available int) (bool, i
 		}
 		for _, pod := range node.Pods() {
 			pgInfo, _ := cs.getOrCreatePodGroupInfo(pod, time.Now())
-			if _, ok := pod.Labels["determined-system"]; ok {
-				maximum = SystemPriority
-				bestPos = decimal.Zero
-			} else if _, ok := pod.Labels["determined-cmd"]; ok {
-				maximum = SystemPriority
-				bestPos = decimal.Zero
-			} else if _, ok := pod.Labels["determined"]; !ok { //only count determined pods for preemption
+			if _, ok := pod.Labels["determined"]; !ok { //only count determined pods for preemption
 				continue
+			}
+			if pod.Name[0:2] == "gc" {
+				maximum = SystemPriority
+				bestPos = decimal.Zero
+			} else if pod.Name[0:3] == "cmd" {
+				maximum = SystemPriority
+				bestPos = decimal.Zero
 			}
 			if int(pgInfo.priority) > maximum {
 				maximum = int(*pod.Spec.Priority)
