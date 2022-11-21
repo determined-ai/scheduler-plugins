@@ -1,0 +1,352 @@
+// Copyright (c) 2020 Graphcore Ltd. All rights reserved.
+// 
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//    http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto3";
+
+package virmgrpc;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "./protos";
+
+//
+// Type Definitions
+//
+
+enum IpuLinkRoutingType {
+  IRT_UNDEFINED = 0;
+  // DNC - Default Configuration
+  IRT_DNC = 1;
+  // SWNC - Sliding Window Configuration
+  IRT_SWNC = 2;
+  // BTNC - Barley Twist Configuration
+  IRT_BTNC = 3;
+  // RINGSWNC - Sliding Window Configuration with loop links enabled
+  IRT_RINGSWNC = 4;
+}
+
+enum GatewayRoutingType {
+  GRT_UNDEFINED = 0;
+  // RING - Routing for GW Clusters with loop links enabled
+  GRT_RING = 2;
+  // SWRING - Routing for GW Clusters with switched GW links
+  GRT_SWRING = 3;
+}
+
+// Types of sync configuration which can be applied globally to a partition.
+enum SyncType {
+  ST_UNDEFINED = 0;
+  // Default global sync configuration
+  ST_GS2_DEFAULT = 1;
+  // Independent rails sync configuration - unsupported configuration
+  ST_GS2_INDEPENDENT_RAILS = 2;
+  // POD Native default sync configuration
+  ST_POD_NATIVE_DEFAULT = 3;
+  // POD Native replicated pipeline sync configuration
+  ST_POD_NATIVE_REPLICATED_PIPELINE = 4;
+}
+
+enum PartitionReadyState {
+  PS_UNDEFINED = 0;
+  PS_PENDING = 1;
+  PS_ACTIVE = 2;
+  PS_REMOVED = 3;
+  PS_ERROR = 4;
+}
+
+enum PartitionOperationState {
+  POS_UNDEFINED = 0;
+  POS_IDLE = 1;
+  POS_CREATING = 2;
+  POS_REMOVING = 3;
+  POS_RESETTING = 4;
+  POS_FAILED = 5;
+}
+
+message PartitionIpu {
+  // The physical identifier of the IpuLinkDomain in the cluster for this IPU
+  uint32 ipulink_domain_topology_id = 1;
+  // The logical identifier of the IpuLinkDomain when in the partition.
+  uint32 ipulink_domain_routing_id = 2;
+  // The physical identifier of the IPU in the IpuLinkDomain.
+  uint32 topology_id = 3;
+  // The logical identifier of the IPU when in the partition.
+  uint32 routing_id = 4;
+}
+
+message PartitionSpec {
+  // The cluster containing the IPUs to be partitioned.
+  string cluster_id = 1;
+  // The selection of IPUs from the cluster.
+  repeated PartitionIpu ipus = 2;
+  // The routing method to use for the IPUs in an IpuLinkDomain.
+  IpuLinkRoutingType ipulink_routing_type = 3;
+  // The sync groupings to use for the inter-GCD sync group (GS2).
+  SyncType sync_type = 4;
+  // The number of GCDs to divide the partition into.
+  uint32 num_gcds = 5;
+  // The number of ipu link segments used from separate IpuLinkDomains in the
+  // partition
+  uint32 num_ipulink_segments = 6;
+  // Boolean to set the "Fabric Reconfigurable" IPUoF attribute
+  bool reconfigurable = 7;
+  // Gateway Routing Type
+  GatewayRoutingType gw_routing_type = 8;
+  // Give the total number of replicas independently of the number of GCDs.
+  uint32 num_replicas = 9;
+  // The allocation containing the IPUs to be partitioned.
+  string allocation_id = 10;
+}
+
+message Partition {
+  // Unique id of the partition
+  string id = 1;
+  // Partition Specification
+  PartitionSpec spec = 2;
+  // Partition State
+  PartitionReadyState ready_state = 3;
+  // Return the IPUoF server version
+  string ipuof_server_version = 4;
+}
+
+message ListPartitionsRequest {
+  // [optional]
+  // Only list partitions within the specific allocation
+  // If not specified, list all partitions in all allocations that the user has
+  // access to
+  string allocation_id = 1;
+}
+
+message ListPartitionsReply {
+  // List of configured partitions.
+  repeated Partition partitions = 1;
+}
+
+message PartitionRequirements {
+  // Unique id of the partition
+  string id = 1;
+  // Partition size required
+  uint32 size = 2;
+  // Specify specific cluster for the partition (optional)
+  // If not specified, partition will be created in any available
+  // cluster - deprecated. Use the allocation_id.
+  string cluster_id = 3;
+  // The routing method required for the IPUs in an IpuLinkDomain (optional)
+  // If not specified, a default routing method will be selected based on the
+  // partition size and the cluster topology.
+  IpuLinkRoutingType ipulink_routing_type = 4;
+  // The number of ipu link segments used from separate IpuLinkDomains in the
+  // partition (optional)
+  // If not specified single ipulink segment will be used.
+  uint32 num_ipulink_segments = 5;
+  // The routing method required for the ipu link segments
+  // (optional, Multi-ipulink-segement partitions only)
+  // If not specified, default routing method will be selected based on the
+  // inter-ipulink-domain topology
+  GatewayRoutingType gw_routing_type = 6;
+  // The sync groupings to use for the inter-GCD sync group (GS2) (optional)
+  // If not specified, GST_DEFAULT will be used.
+  SyncType sync_type = 7;
+  // The number of GCDs to divide the partition into (optional)
+  // If not specified, single GCD will be assumed.
+  uint32 num_gcds = 8;
+  // Boolean to set the "Fabric Reconfigurable" IPUoF attribute
+  // (optional) If not specified, partition will be non-reconfigurable.
+  bool reconfigurable = 9;
+  // The total number of replicas across all GCDs (optional)
+  // If not specified, it is assumed that there is one replica per GCD, which
+  // is equivalent to setting num_replicas == num_gcds.
+  uint32 num_replicas = 10;
+  // Specify specific allocation for the partition (optional)
+  // If not specified, partition will be created in any available
+  // allocation
+  string allocation_id = 11;
+  // The selection of IPUs from a cluster.
+  // When PartitionIpu requirement is specified, cluster_id must be provided.
+  repeated PartitionIpu ipus = 12;
+}
+
+message CreatePartitionRequest {
+  // Partition requirements
+  PartitionRequirements requirements = 2;
+  // Disable Auto-reset for the partition
+  bool disable_auto_reset = 3;
+  // If set to true, the V-IPU controller may consider reallocation of this
+  // partition to a different set of IPUs on partition errors
+  bool relocatable = 5;
+}
+
+message IpuofDevice {
+  // The IP address of the IPUoF endpoint.
+  string ip = 1;
+  // The port number of the IPUoF endpoint.
+  uint32 server_port = 2;
+  // The port number of the IPUoF rdma endpoint.
+  uint32 rdma_port = 3;
+  // The remote device number of the IPU.
+  uint32 device_id = 4;
+  // The IpuLink Segment id for the IPU.
+  uint32 ipulink_segment_id = 5;
+  // The routing id for the IPU
+  uint32 routing_id = 6;
+  // The IPU architecture ID
+  uint32 ipu_arch_id = 7;
+  // The IPU ID attribute in GCDA
+  uint32 ipu_id = 8;
+  // chip_id contains the silicon ID of the given IPU
+  string chip_id = 9;
+  // gwsw_version contains the GWSW version of the IPUM where the
+  // IpuofDevice is located to.
+  string gwsw_version = 10;
+  // ipum_sw_version contains the IPU-M SW version where the IpuofDevice is
+  // located.
+  string ipum_sw_version = 11;
+}
+
+message PartitionConfig {
+  message Gcd {
+    // The IPU devices in the GCD.
+    repeated IpuofDevice devices = 2;
+    // Arbitrary attributes as key-value pairs.
+    map<string, string> attributes = 3;
+  }
+  // The routing method configured for the IPUs.
+  IpuLinkRoutingType ipulink_routing_type = 2;
+  // The sync groupings configured for the IPUs.
+  SyncType sync_type = 3;
+  // Boolean to set the "Fabric Reconfigurable" IPUoF attribute
+  bool reconfigurable = 5;
+  // Gateway Routing Type for multi-ipulink-segment partitions
+  GatewayRoutingType gw_routing_type = 6;
+  // The number of IpuLinkSegments
+  uint32 num_ipulink_segments = 7;
+  // The GCD configurations for the partition.
+  repeated Gcd gcd_configs = 8;
+  // The IPUoF server version associated with this partition
+  string ipuof_server_version = 9;
+}
+
+message CreatePartitionReply {
+  // Unique identifier of the created partition.
+  string partition_id = 1;
+}
+
+message ResetPartitionRequest {
+  // Unique identifier of the partition to reset.
+  string partition_id = 1;
+  // If set to true, the V-IPU controller may consider reallocating of this
+  // partition to a different set of IPUs on reset errors, overriding value
+  // set during partition creation. If set to false, value set during the
+  // partition creation will be used.
+  bool relocatable = 2;
+}
+
+message ResetPartitionReply {}
+
+message RemovePartitionRequest {
+  // Unique identifier of the partition to reset.
+  string partition_id = 1;
+  // Force remove ignore errors while removing a partition
+  bool force = 2;
+}
+
+message RemovePartitionReply {}
+
+message GetPartitionIpuofConfigRequest {
+  message GcdID {
+    uint32 id = 1;
+  }
+  // Unique id of the Partition
+  string partition_id = 1;
+  // Gcd id
+  GcdID gcd_id = 2;
+}
+
+message GetPartitionIpuofConfigReply {
+  // IPUoF configurations for the partition (each Gcd)
+  PartitionConfig ipuof_config = 1;
+}
+
+message PartitionStatus {
+  string partition_id = 1;
+  PartitionReadyState ready_state = 2;
+  PartitionOperationState operation_state = 3;
+  repeated string errors = 4;
+  uint32 max_auto_reset_retries = 5;
+  uint32 auto_reset_retry_count = 6;
+  google.protobuf.Timestamp last_auto_reset_time = 7;
+}
+
+message GetPartitionStatusRequest {
+  // Unique identifier for the partition
+  string partition_id = 1;
+}
+
+message GetPartitionStatusReply {
+  PartitionStatus status = 1;
+}
+
+message AllocationSpec {
+  // The cluster containing the allocation.
+  string cluster_id = 1;
+  // The agents in the allocation.
+  repeated string agent_ids = 2;
+}
+
+message Allocation {
+  // Unique identifier for the allocation.
+  string id = 1;
+  // The Allocation specification.
+  AllocationSpec spec = 2;
+}
+
+message ListIPUAttributesRequest {
+  // Filter to only fetch attributes from certain agents
+  repeated string agents = 1;
+}
+
+message ListIPUAttributesReply {
+  message Entry {
+    message Attributes {
+      map<string, string> attributes = 1;
+    }
+    string agent = 1;
+    // The uint32 map key represents IpuHwID
+    map<uint32, Attributes> ipu_attributes = 2;
+  }
+  repeated Entry entries = 1;
+}
+
+service UserService {
+  // List the configured partitions.
+  rpc ListPartitions(ListPartitionsRequest) returns (ListPartitionsReply) {}
+
+  // List the attributes of the users IPUs
+  rpc ListIPUAttributes(ListIPUAttributesRequest) returns (ListIPUAttributesReply) {}
+
+  // Create a partition
+  rpc CreatePartition(CreatePartitionRequest) returns (CreatePartitionReply) {}
+
+  // Remove a partition
+  rpc RemovePartition(RemovePartitionRequest) returns (RemovePartitionReply) {}
+
+  // Force a reset of the partition back to an initial state.
+  rpc ResetPartition(ResetPartitionRequest) returns (ResetPartitionReply) {}
+
+  // Get IPUoF configurations for a configured partition
+  rpc GetPartitionIpuofConfig(GetPartitionIpuofConfigRequest) returns (GetPartitionIpuofConfigReply) {}
+
+  // Get status of a partition.
+  rpc GetPartitionStatus(GetPartitionStatusRequest) returns (GetPartitionStatusReply) {}
+
+}

@@ -1,0 +1,41 @@
+apiVersion: kubescheduler.config.k8s.io/v1beta2
+kind: KubeSchedulerConfiguration
+leaderElection:
+  leaderElect: false
+clientConnection:
+  kubeconfig: "/home/rb/.kube/config"
+profiles:
+- schedulerName: g8s8
+  plugins:
+#   queueSort:
+#     enabled:
+#     - name: Coscheduling
+#     disabled:
+#     - name: "*"
+#   preFilter:
+#     enabled:
+#     - name: Coscheduling
+    filter:
+      enabled:
+      - name: G8S8
+#   postFilter:
+#     enabled:
+#     - name: Coscheduling
+#   permit:
+#     enabled:
+#     - name: Coscheduling
+    reserve:
+      enabled:
+#     - name: Coscheduling
+      - name: G8S8
+    preBind:
+      enabled:
+      - name: G8S8
+#   postBind:
+#     enabled:
+#     - name: Coscheduling
+  pluginConfig:
+  - name: Coscheduling
+    args:
+      permitWaitingTimeSeconds: 10
+      deniedPGExpirationTimeSeconds: 3

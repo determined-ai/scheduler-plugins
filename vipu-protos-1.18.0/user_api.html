@@ -1,0 +1,1935 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <title>Protocol Documentation</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Ubuntu:400,700,400italic"/>
+    <style>
+      body {
+        width: 60em;
+        margin: 1em auto;
+        color: #222;
+        font-family: "Ubuntu", sans-serif;
+        padding-bottom: 4em;
+      }
+
+      h1 {
+        font-weight: normal;
+        border-bottom: 1px solid #aaa;
+        padding-bottom: 0.5ex;
+      }
+
+      h2 {
+        border-bottom: 1px solid #aaa;
+        padding-bottom: 0.5ex;
+        margin: 1.5em 0;
+      }
+
+      h3 {
+        font-weight: normal;
+        border-bottom: 1px solid #aaa;
+        padding-bottom: 0.5ex;
+      }
+
+      a {
+        text-decoration: none;
+        color: #567e25;
+      }
+
+      table {
+        width: 100%;
+        font-size: 80%;
+        border-collapse: collapse;
+      }
+
+      thead {
+        font-weight: 700;
+        background-color: #dcdcdc;
+      }
+
+      tbody tr:nth-child(even) {
+        background-color: #fbfbfb;
+      }
+
+      td {
+        border: 1px solid #ccc;
+        padding: 0.5ex 2ex;
+      }
+
+      td p {
+        text-indent: 1em;
+        margin: 0;
+      }
+
+      td p:nth-child(1) {
+        text-indent: 0;  
+      }
+
+       
+      .field-table td:nth-child(1) {  
+        width: 10em;
+      }
+      .field-table td:nth-child(2) {  
+        width: 10em;
+      }
+      .field-table td:nth-child(3) {  
+        width: 6em;
+      }
+      .field-table td:nth-child(4) {  
+        width: auto;
+      }
+
+       
+      .extension-table td:nth-child(1) {  
+        width: 10em;
+      }
+      .extension-table td:nth-child(2) {  
+        width: 10em;
+      }
+      .extension-table td:nth-child(3) {  
+        width: 10em;
+      }
+      .extension-table td:nth-child(4) {  
+        width: 5em;
+      }
+      .extension-table td:nth-child(5) {  
+        width: auto;
+      }
+
+       
+      .enum-table td:nth-child(1) {  
+        width: 10em;
+      }
+      .enum-table td:nth-child(2) {  
+        width: 10em;
+      }
+      .enum-table td:nth-child(3) {  
+        width: auto;
+      }
+
+       
+      .scalar-value-types-table tr {
+        height: 3em;
+      }
+
+       
+      #toc-container ul {
+        list-style-type: none;
+        padding-left: 1em;
+        line-height: 180%;
+        margin: 0;
+      }
+      #toc > li > a {
+        font-weight: bold;
+      }
+
+       
+      .file-heading {
+        width: 100%;
+        display: table;
+        border-bottom: 1px solid #aaa;
+        margin: 4em 0 1.5em 0;
+      }
+      .file-heading h2 {
+        border: none;
+        display: table-cell;
+      }
+      .file-heading a {
+        text-align: right;
+        display: table-cell;
+      }
+
+       
+      .badge {
+        width: 1.6em;
+        height: 1.6em;
+        display: inline-block;
+
+        line-height: 1.6em;
+        text-align: center;
+        font-weight: bold;
+        font-size: 60%;
+
+        color: #89ba48;
+        background-color: #dff0c8;
+
+        margin: 0.5ex 1em 0.5ex -1em;
+        border: 1px solid #fbfbfb;
+        border-radius: 1ex;
+      }
+    </style>
+
+    
+    <link rel="stylesheet" type="text/css" href="stylesheet.css"/>
+  </head>
+
+  <body>
+
+    <h1 id="title">Protocol Documentation</h1>
+
+    <h2>Table of Contents</h2>
+
+    <div id="toc-container">
+      <ul id="toc">
+        
+          
+          <li>
+            <a href="#vipuuser.proto">vipuuser.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#virmgrpc.Allocation"><span class="badge">M</span>Allocation</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.AllocationSpec"><span class="badge">M</span>AllocationSpec</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.CreatePartitionReply"><span class="badge">M</span>CreatePartitionReply</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.CreatePartitionRequest"><span class="badge">M</span>CreatePartitionRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.GetPartitionIpuofConfigReply"><span class="badge">M</span>GetPartitionIpuofConfigReply</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.GetPartitionIpuofConfigRequest"><span class="badge">M</span>GetPartitionIpuofConfigRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.GetPartitionIpuofConfigRequest.GcdID"><span class="badge">M</span>GetPartitionIpuofConfigRequest.GcdID</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.GetPartitionStatusReply"><span class="badge">M</span>GetPartitionStatusReply</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.GetPartitionStatusRequest"><span class="badge">M</span>GetPartitionStatusRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.IpuofDevice"><span class="badge">M</span>IpuofDevice</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.ListIPUAttributesReply"><span class="badge">M</span>ListIPUAttributesReply</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.ListIPUAttributesReply.Entry"><span class="badge">M</span>ListIPUAttributesReply.Entry</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.ListIPUAttributesReply.Entry.Attributes"><span class="badge">M</span>ListIPUAttributesReply.Entry.Attributes</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.ListIPUAttributesReply.Entry.Attributes.AttributesEntry"><span class="badge">M</span>ListIPUAttributesReply.Entry.Attributes.AttributesEntry</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.ListIPUAttributesReply.Entry.IpuAttributesEntry"><span class="badge">M</span>ListIPUAttributesReply.Entry.IpuAttributesEntry</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.ListIPUAttributesRequest"><span class="badge">M</span>ListIPUAttributesRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.ListPartitionsReply"><span class="badge">M</span>ListPartitionsReply</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.ListPartitionsRequest"><span class="badge">M</span>ListPartitionsRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.Partition"><span class="badge">M</span>Partition</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.PartitionConfig"><span class="badge">M</span>PartitionConfig</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.PartitionConfig.Gcd"><span class="badge">M</span>PartitionConfig.Gcd</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.PartitionConfig.Gcd.AttributesEntry"><span class="badge">M</span>PartitionConfig.Gcd.AttributesEntry</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.PartitionIpu"><span class="badge">M</span>PartitionIpu</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.PartitionRequirements"><span class="badge">M</span>PartitionRequirements</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.PartitionSpec"><span class="badge">M</span>PartitionSpec</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.PartitionStatus"><span class="badge">M</span>PartitionStatus</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.RemovePartitionReply"><span class="badge">M</span>RemovePartitionReply</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.RemovePartitionRequest"><span class="badge">M</span>RemovePartitionRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.ResetPartitionReply"><span class="badge">M</span>ResetPartitionReply</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.ResetPartitionRequest"><span class="badge">M</span>ResetPartitionRequest</a>
+                </li>
+              
+              
+                <li>
+                  <a href="#virmgrpc.GatewayRoutingType"><span class="badge">E</span>GatewayRoutingType</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.IpuLinkRoutingType"><span class="badge">E</span>IpuLinkRoutingType</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.PartitionOperationState"><span class="badge">E</span>PartitionOperationState</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.PartitionReadyState"><span class="badge">E</span>PartitionReadyState</a>
+                </li>
+              
+                <li>
+                  <a href="#virmgrpc.SyncType"><span class="badge">E</span>SyncType</a>
+                </li>
+              
+              
+              
+                <li>
+                  <a href="#virmgrpc.UserService"><span class="badge">S</span>UserService</a>
+                </li>
+              
+            </ul>
+          </li>
+        
+        <li><a href="#scalar-value-types">Scalar Value Types</a></li>
+      </ul>
+    </div>
+
+    
+      
+      <div class="file-heading">
+        <h2 id="vipuuser.proto">vipuuser.proto</h2><a href="#title">Top</a>
+      </div>
+      <p>Copyright (c) 2020 Graphcore Ltd. All rights reserved.</p><p>Licensed under the Apache License, Version 2.0 (the "License");</p><p>you may not use this file except in compliance with the License.</p><p>You may obtain a copy of the License at</p><p>http://www.apache.org/licenses/LICENSE-2.0</p><p>Unless required by applicable law or agreed to in writing, software</p><p>distributed under the License is distributed on an "AS IS" BASIS,</p><p>WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</p><p>See the License for the specific language governing permissions and</p><p>limitations under the License.</p>
+
+      
+        <h3 id="virmgrpc.Allocation">Allocation</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Unique identifier for the allocation. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>spec</td>
+                  <td><a href="#virmgrpc.AllocationSpec">AllocationSpec</a></td>
+                  <td></td>
+                  <td><p>The Allocation specification. </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.AllocationSpec">AllocationSpec</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>cluster_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>The cluster containing the allocation. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>agent_ids</td>
+                  <td><a href="#string">string</a></td>
+                  <td>repeated</td>
+                  <td><p>The agents in the allocation. </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.CreatePartitionReply">CreatePartitionReply</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>partition_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Unique identifier of the created partition. </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.CreatePartitionRequest">CreatePartitionRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>requirements</td>
+                  <td><a href="#virmgrpc.PartitionRequirements">PartitionRequirements</a></td>
+                  <td></td>
+                  <td><p>Partition requirements </p></td>
+                </tr>
+              
+                <tr>
+                  <td>disable_auto_reset</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>Disable Auto-reset for the partition </p></td>
+                </tr>
+              
+                <tr>
+                  <td>relocatable</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>If set to true, the V-IPU controller may consider reallocation of this
+partition to a different set of IPUs on partition errors </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.GetPartitionIpuofConfigReply">GetPartitionIpuofConfigReply</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>ipuof_config</td>
+                  <td><a href="#virmgrpc.PartitionConfig">PartitionConfig</a></td>
+                  <td></td>
+                  <td><p>IPUoF configurations for the partition (each Gcd) </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.GetPartitionIpuofConfigRequest">GetPartitionIpuofConfigRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>partition_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Unique id of the Partition </p></td>
+                </tr>
+              
+                <tr>
+                  <td>gcd_id</td>
+                  <td><a href="#virmgrpc.GetPartitionIpuofConfigRequest.GcdID">GetPartitionIpuofConfigRequest.GcdID</a></td>
+                  <td></td>
+                  <td><p>Gcd id </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.GetPartitionIpuofConfigRequest.GcdID">GetPartitionIpuofConfigRequest.GcdID</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>id</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.GetPartitionStatusReply">GetPartitionStatusReply</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>status</td>
+                  <td><a href="#virmgrpc.PartitionStatus">PartitionStatus</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.GetPartitionStatusRequest">GetPartitionStatusRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>partition_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Unique identifier for the partition </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.IpuofDevice">IpuofDevice</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>ip</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>The IP address of the IPUoF endpoint. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>server_port</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The port number of the IPUoF endpoint. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>rdma_port</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The port number of the IPUoF rdma endpoint. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>device_id</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The remote device number of the IPU. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipulink_segment_id</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The IpuLink Segment id for the IPU. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>routing_id</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The routing id for the IPU </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipu_arch_id</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The IPU architecture ID </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipu_id</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The IPU ID attribute in GCDA </p></td>
+                </tr>
+              
+                <tr>
+                  <td>chip_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>chip_id contains the silicon ID of the given IPU </p></td>
+                </tr>
+              
+                <tr>
+                  <td>gwsw_version</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>gwsw_version contains the GWSW version of the IPUM where the
+IpuofDevice is located to. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipum_sw_version</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>ipum_sw_version contains the IPU-M SW version where the IpuofDevice is
+located. </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.ListIPUAttributesReply">ListIPUAttributesReply</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>entries</td>
+                  <td><a href="#virmgrpc.ListIPUAttributesReply.Entry">ListIPUAttributesReply.Entry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.ListIPUAttributesReply.Entry">ListIPUAttributesReply.Entry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>agent</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipu_attributes</td>
+                  <td><a href="#virmgrpc.ListIPUAttributesReply.Entry.IpuAttributesEntry">ListIPUAttributesReply.Entry.IpuAttributesEntry</a></td>
+                  <td>repeated</td>
+                  <td><p>The uint32 map key represents IpuHwID </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.ListIPUAttributesReply.Entry.Attributes">ListIPUAttributesReply.Entry.Attributes</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>attributes</td>
+                  <td><a href="#virmgrpc.ListIPUAttributesReply.Entry.Attributes.AttributesEntry">ListIPUAttributesReply.Entry.Attributes.AttributesEntry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.ListIPUAttributesReply.Entry.Attributes.AttributesEntry">ListIPUAttributesReply.Entry.Attributes.AttributesEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.ListIPUAttributesReply.Entry.IpuAttributesEntry">ListIPUAttributesReply.Entry.IpuAttributesEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#virmgrpc.ListIPUAttributesReply.Entry.Attributes">ListIPUAttributesReply.Entry.Attributes</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.ListIPUAttributesRequest">ListIPUAttributesRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>agents</td>
+                  <td><a href="#string">string</a></td>
+                  <td>repeated</td>
+                  <td><p>Filter to only fetch attributes from certain agents </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.ListPartitionsReply">ListPartitionsReply</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>partitions</td>
+                  <td><a href="#virmgrpc.Partition">Partition</a></td>
+                  <td>repeated</td>
+                  <td><p>List of configured partitions. </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.ListPartitionsRequest">ListPartitionsRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>allocation_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>[optional]
+Only list partitions within the specific allocation
+If not specified, list all partitions in all allocations that the user has
+access to </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.Partition">Partition</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Unique id of the partition </p></td>
+                </tr>
+              
+                <tr>
+                  <td>spec</td>
+                  <td><a href="#virmgrpc.PartitionSpec">PartitionSpec</a></td>
+                  <td></td>
+                  <td><p>Partition Specification </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ready_state</td>
+                  <td><a href="#virmgrpc.PartitionReadyState">PartitionReadyState</a></td>
+                  <td></td>
+                  <td><p>Partition State </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipuof_server_version</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Return the IPUoF server version </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.PartitionConfig">PartitionConfig</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>ipulink_routing_type</td>
+                  <td><a href="#virmgrpc.IpuLinkRoutingType">IpuLinkRoutingType</a></td>
+                  <td></td>
+                  <td><p>The routing method configured for the IPUs. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>sync_type</td>
+                  <td><a href="#virmgrpc.SyncType">SyncType</a></td>
+                  <td></td>
+                  <td><p>The sync groupings configured for the IPUs. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>reconfigurable</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>Boolean to set the &#34;Fabric Reconfigurable&#34; IPUoF attribute </p></td>
+                </tr>
+              
+                <tr>
+                  <td>gw_routing_type</td>
+                  <td><a href="#virmgrpc.GatewayRoutingType">GatewayRoutingType</a></td>
+                  <td></td>
+                  <td><p>Gateway Routing Type for multi-ipulink-segment partitions </p></td>
+                </tr>
+              
+                <tr>
+                  <td>num_ipulink_segments</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The number of IpuLinkSegments </p></td>
+                </tr>
+              
+                <tr>
+                  <td>gcd_configs</td>
+                  <td><a href="#virmgrpc.PartitionConfig.Gcd">PartitionConfig.Gcd</a></td>
+                  <td>repeated</td>
+                  <td><p>The GCD configurations for the partition. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipuof_server_version</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>The IPUoF server version associated with this partition </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.PartitionConfig.Gcd">PartitionConfig.Gcd</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>devices</td>
+                  <td><a href="#virmgrpc.IpuofDevice">IpuofDevice</a></td>
+                  <td>repeated</td>
+                  <td><p>The IPU devices in the GCD. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>attributes</td>
+                  <td><a href="#virmgrpc.PartitionConfig.Gcd.AttributesEntry">PartitionConfig.Gcd.AttributesEntry</a></td>
+                  <td>repeated</td>
+                  <td><p>Arbitrary attributes as key-value pairs. </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.PartitionConfig.Gcd.AttributesEntry">PartitionConfig.Gcd.AttributesEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.PartitionIpu">PartitionIpu</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>ipulink_domain_topology_id</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The physical identifier of the IpuLinkDomain in the cluster for this IPU </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipulink_domain_routing_id</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The logical identifier of the IpuLinkDomain when in the partition. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>topology_id</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The physical identifier of the IPU in the IpuLinkDomain. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>routing_id</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The logical identifier of the IPU when in the partition. </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.PartitionRequirements">PartitionRequirements</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Unique id of the partition </p></td>
+                </tr>
+              
+                <tr>
+                  <td>size</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>Partition size required </p></td>
+                </tr>
+              
+                <tr>
+                  <td>cluster_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Specify specific cluster for the partition (optional)
+If not specified, partition will be created in any available
+cluster - deprecated. Use the allocation_id. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipulink_routing_type</td>
+                  <td><a href="#virmgrpc.IpuLinkRoutingType">IpuLinkRoutingType</a></td>
+                  <td></td>
+                  <td><p>The routing method required for the IPUs in an IpuLinkDomain (optional)
+If not specified, a default routing method will be selected based on the
+partition size and the cluster topology. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>num_ipulink_segments</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The number of ipu link segments used from separate IpuLinkDomains in the
+partition (optional)
+If not specified single ipulink segment will be used. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>gw_routing_type</td>
+                  <td><a href="#virmgrpc.GatewayRoutingType">GatewayRoutingType</a></td>
+                  <td></td>
+                  <td><p>The routing method required for the ipu link segments
+(optional, Multi-ipulink-segement partitions only)
+If not specified, default routing method will be selected based on the
+inter-ipulink-domain topology </p></td>
+                </tr>
+              
+                <tr>
+                  <td>sync_type</td>
+                  <td><a href="#virmgrpc.SyncType">SyncType</a></td>
+                  <td></td>
+                  <td><p>The sync groupings to use for the inter-GCD sync group (GS2) (optional)
+If not specified, GST_DEFAULT will be used. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>num_gcds</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The number of GCDs to divide the partition into (optional)
+If not specified, single GCD will be assumed. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>reconfigurable</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>Boolean to set the &#34;Fabric Reconfigurable&#34; IPUoF attribute
+(optional) If not specified, partition will be non-reconfigurable. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>num_replicas</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The total number of replicas across all GCDs (optional)
+If not specified, it is assumed that there is one replica per GCD, which
+is equivalent to setting num_replicas == num_gcds. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>allocation_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Specify specific allocation for the partition (optional)
+If not specified, partition will be created in any available
+allocation </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipus</td>
+                  <td><a href="#virmgrpc.PartitionIpu">PartitionIpu</a></td>
+                  <td>repeated</td>
+                  <td><p>The selection of IPUs from a cluster.
+When PartitionIpu requirement is specified, cluster_id must be provided. </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.PartitionSpec">PartitionSpec</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>cluster_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>The cluster containing the IPUs to be partitioned. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipus</td>
+                  <td><a href="#virmgrpc.PartitionIpu">PartitionIpu</a></td>
+                  <td>repeated</td>
+                  <td><p>The selection of IPUs from the cluster. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ipulink_routing_type</td>
+                  <td><a href="#virmgrpc.IpuLinkRoutingType">IpuLinkRoutingType</a></td>
+                  <td></td>
+                  <td><p>The routing method to use for the IPUs in an IpuLinkDomain. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>sync_type</td>
+                  <td><a href="#virmgrpc.SyncType">SyncType</a></td>
+                  <td></td>
+                  <td><p>The sync groupings to use for the inter-GCD sync group (GS2). </p></td>
+                </tr>
+              
+                <tr>
+                  <td>num_gcds</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The number of GCDs to divide the partition into. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>num_ipulink_segments</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>The number of ipu link segments used from separate IpuLinkDomains in the
+partition </p></td>
+                </tr>
+              
+                <tr>
+                  <td>reconfigurable</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>Boolean to set the &#34;Fabric Reconfigurable&#34; IPUoF attribute </p></td>
+                </tr>
+              
+                <tr>
+                  <td>gw_routing_type</td>
+                  <td><a href="#virmgrpc.GatewayRoutingType">GatewayRoutingType</a></td>
+                  <td></td>
+                  <td><p>Gateway Routing Type </p></td>
+                </tr>
+              
+                <tr>
+                  <td>num_replicas</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>Give the total number of replicas independently of the number of GCDs. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>allocation_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>The allocation containing the IPUs to be partitioned. </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.PartitionStatus">PartitionStatus</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>partition_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>ready_state</td>
+                  <td><a href="#virmgrpc.PartitionReadyState">PartitionReadyState</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>operation_state</td>
+                  <td><a href="#virmgrpc.PartitionOperationState">PartitionOperationState</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>errors</td>
+                  <td><a href="#string">string</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>max_auto_reset_retries</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>auto_reset_retry_count</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>last_auto_reset_time</td>
+                  <td><a href="#google.protobuf.Timestamp">google.protobuf.Timestamp</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.RemovePartitionReply">RemovePartitionReply</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="virmgrpc.RemovePartitionRequest">RemovePartitionRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>partition_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Unique identifier of the partition to reset. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>force</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>Force remove ignore errors while removing a partition </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="virmgrpc.ResetPartitionReply">ResetPartitionReply</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="virmgrpc.ResetPartitionRequest">ResetPartitionRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>partition_id</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Unique identifier of the partition to reset. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>relocatable</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>If set to true, the V-IPU controller may consider reallocating of this
+partition to a different set of IPUs on reset errors, overriding value
+set during partition creation. If set to false, value set during the
+partition creation will be used. </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+
+      
+        <h3 id="virmgrpc.GatewayRoutingType">GatewayRoutingType</h3>
+        <p></p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Name</td><td>Number</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>GRT_UNDEFINED</td>
+                <td>0</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>GRT_RING</td>
+                <td>2</td>
+                <td><p>RING - Routing for GW Clusters with loop links enabled</p></td>
+              </tr>
+            
+              <tr>
+                <td>GRT_SWRING</td>
+                <td>3</td>
+                <td><p>SWRING - Routing for GW Clusters with switched GW links</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+      
+        <h3 id="virmgrpc.IpuLinkRoutingType">IpuLinkRoutingType</h3>
+        <p></p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Name</td><td>Number</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>IRT_UNDEFINED</td>
+                <td>0</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>IRT_DNC</td>
+                <td>1</td>
+                <td><p>DNC - Default Configuration</p></td>
+              </tr>
+            
+              <tr>
+                <td>IRT_SWNC</td>
+                <td>2</td>
+                <td><p>SWNC - Sliding Window Configuration</p></td>
+              </tr>
+            
+              <tr>
+                <td>IRT_BTNC</td>
+                <td>3</td>
+                <td><p>BTNC - Barley Twist Configuration</p></td>
+              </tr>
+            
+              <tr>
+                <td>IRT_RINGSWNC</td>
+                <td>4</td>
+                <td><p>RINGSWNC - Sliding Window Configuration with loop links enabled</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+      
+        <h3 id="virmgrpc.PartitionOperationState">PartitionOperationState</h3>
+        <p></p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Name</td><td>Number</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>POS_UNDEFINED</td>
+                <td>0</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>POS_IDLE</td>
+                <td>1</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>POS_CREATING</td>
+                <td>2</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>POS_REMOVING</td>
+                <td>3</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>POS_RESETTING</td>
+                <td>4</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>POS_FAILED</td>
+                <td>5</td>
+                <td><p></p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+      
+        <h3 id="virmgrpc.PartitionReadyState">PartitionReadyState</h3>
+        <p></p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Name</td><td>Number</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>PS_UNDEFINED</td>
+                <td>0</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>PS_PENDING</td>
+                <td>1</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>PS_ACTIVE</td>
+                <td>2</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>PS_REMOVED</td>
+                <td>3</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>PS_ERROR</td>
+                <td>4</td>
+                <td><p></p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+      
+        <h3 id="virmgrpc.SyncType">SyncType</h3>
+        <p>Types of sync configuration which can be applied globally to a partition.</p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Name</td><td>Number</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>ST_UNDEFINED</td>
+                <td>0</td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>ST_GS2_DEFAULT</td>
+                <td>1</td>
+                <td><p>Default global sync configuration</p></td>
+              </tr>
+            
+              <tr>
+                <td>ST_GS2_INDEPENDENT_RAILS</td>
+                <td>2</td>
+                <td><p>Independent rails sync configuration - unsupported configuration</p></td>
+              </tr>
+            
+              <tr>
+                <td>ST_POD_NATIVE_DEFAULT</td>
+                <td>3</td>
+                <td><p>POD Native default sync configuration</p></td>
+              </tr>
+            
+              <tr>
+                <td>ST_POD_NATIVE_REPLICATED_PIPELINE</td>
+                <td>4</td>
+                <td><p>POD Native replicated pipeline sync configuration</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+      
+
+      
+
+      
+        <h3 id="virmgrpc.UserService">UserService</h3>
+        <p></p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>ListPartitions</td>
+                <td><a href="#virmgrpc.ListPartitionsRequest">ListPartitionsRequest</a></td>
+                <td><a href="#virmgrpc.ListPartitionsReply">ListPartitionsReply</a></td>
+                <td><p>List the configured partitions.</p></td>
+              </tr>
+            
+              <tr>
+                <td>ListIPUAttributes</td>
+                <td><a href="#virmgrpc.ListIPUAttributesRequest">ListIPUAttributesRequest</a></td>
+                <td><a href="#virmgrpc.ListIPUAttributesReply">ListIPUAttributesReply</a></td>
+                <td><p>List the attributes of the users IPUs</p></td>
+              </tr>
+            
+              <tr>
+                <td>CreatePartition</td>
+                <td><a href="#virmgrpc.CreatePartitionRequest">CreatePartitionRequest</a></td>
+                <td><a href="#virmgrpc.CreatePartitionReply">CreatePartitionReply</a></td>
+                <td><p>Create a partition</p></td>
+              </tr>
+            
+              <tr>
+                <td>RemovePartition</td>
+                <td><a href="#virmgrpc.RemovePartitionRequest">RemovePartitionRequest</a></td>
+                <td><a href="#virmgrpc.RemovePartitionReply">RemovePartitionReply</a></td>
+                <td><p>Remove a partition</p></td>
+              </tr>
+            
+              <tr>
+                <td>ResetPartition</td>
+                <td><a href="#virmgrpc.ResetPartitionRequest">ResetPartitionRequest</a></td>
+                <td><a href="#virmgrpc.ResetPartitionReply">ResetPartitionReply</a></td>
+                <td><p>Force a reset of the partition back to an initial state.</p></td>
+              </tr>
+            
+              <tr>
+                <td>GetPartitionIpuofConfig</td>
+                <td><a href="#virmgrpc.GetPartitionIpuofConfigRequest">GetPartitionIpuofConfigRequest</a></td>
+                <td><a href="#virmgrpc.GetPartitionIpuofConfigReply">GetPartitionIpuofConfigReply</a></td>
+                <td><p>Get IPUoF configurations for a configured partition</p></td>
+              </tr>
+            
+              <tr>
+                <td>GetPartitionStatus</td>
+                <td><a href="#virmgrpc.GetPartitionStatusRequest">GetPartitionStatusRequest</a></td>
+                <td><a href="#virmgrpc.GetPartitionStatusReply">GetPartitionStatusReply</a></td>
+                <td><p>Get status of a partition.</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+
+        
+    
+
+    <h2 id="scalar-value-types">Scalar Value Types</h2>
+    <table class="scalar-value-types-table">
+      <thead>
+        <tr><td>.proto Type</td><td>Notes</td><td>C++</td><td>Java</td><td>Python</td><td>Go</td><td>C#</td><td>PHP</td><td>Ruby</td></tr>
+      </thead>
+      <tbody>
+        
+          <tr id="double">
+            <td>double</td>
+            <td></td>
+            <td>double</td>
+            <td>double</td>
+            <td>float</td>
+            <td>float64</td>
+            <td>double</td>
+            <td>float</td>
+            <td>Float</td>
+          </tr>
+        
+          <tr id="float">
+            <td>float</td>
+            <td></td>
+            <td>float</td>
+            <td>float</td>
+            <td>float</td>
+            <td>float32</td>
+            <td>float</td>
+            <td>float</td>
+            <td>Float</td>
+          </tr>
+        
+          <tr id="int32">
+            <td>int32</td>
+            <td>Uses variable-length encoding. Inefficient for encoding negative numbers – if your field is likely to have negative values, use sint32 instead.</td>
+            <td>int32</td>
+            <td>int</td>
+            <td>int</td>
+            <td>int32</td>
+            <td>int</td>
+            <td>integer</td>
+            <td>Bignum or Fixnum (as required)</td>
+          </tr>
+        
+          <tr id="int64">
+            <td>int64</td>
+            <td>Uses variable-length encoding. Inefficient for encoding negative numbers – if your field is likely to have negative values, use sint64 instead.</td>
+            <td>int64</td>
+            <td>long</td>
+            <td>int/long</td>
+            <td>int64</td>
+            <td>long</td>
+            <td>integer/string</td>
+            <td>Bignum</td>
+          </tr>
+        
+          <tr id="uint32">
+            <td>uint32</td>
+            <td>Uses variable-length encoding.</td>
+            <td>uint32</td>
+            <td>int</td>
+            <td>int/long</td>
+            <td>uint32</td>
+            <td>uint</td>
+            <td>integer</td>
+            <td>Bignum or Fixnum (as required)</td>
+          </tr>
+        
+          <tr id="uint64">
+            <td>uint64</td>
+            <td>Uses variable-length encoding.</td>
+            <td>uint64</td>
+            <td>long</td>
+            <td>int/long</td>
+            <td>uint64</td>
+            <td>ulong</td>
+            <td>integer/string</td>
+            <td>Bignum or Fixnum (as required)</td>
+          </tr>
+        
+          <tr id="sint32">
+            <td>sint32</td>
+            <td>Uses variable-length encoding. Signed int value. These more efficiently encode negative numbers than regular int32s.</td>
+            <td>int32</td>
+            <td>int</td>
+            <td>int</td>
+            <td>int32</td>
+            <td>int</td>
+            <td>integer</td>
+            <td>Bignum or Fixnum (as required)</td>
+          </tr>
+        
+          <tr id="sint64">
+            <td>sint64</td>
+            <td>Uses variable-length encoding. Signed int value. These more efficiently encode negative numbers than regular int64s.</td>
+            <td>int64</td>
+            <td>long</td>
+            <td>int/long</td>
+            <td>int64</td>
+            <td>long</td>
+            <td>integer/string</td>
+            <td>Bignum</td>
+          </tr>
+        
+          <tr id="fixed32">
+            <td>fixed32</td>
+            <td>Always four bytes. More efficient than uint32 if values are often greater than 2^28.</td>
+            <td>uint32</td>
+            <td>int</td>
+            <td>int</td>
+            <td>uint32</td>
+            <td>uint</td>
+            <td>integer</td>
+            <td>Bignum or Fixnum (as required)</td>
+          </tr>
+        
+          <tr id="fixed64">
+            <td>fixed64</td>
+            <td>Always eight bytes. More efficient than uint64 if values are often greater than 2^56.</td>
+            <td>uint64</td>
+            <td>long</td>
+            <td>int/long</td>
+            <td>uint64</td>
+            <td>ulong</td>
+            <td>integer/string</td>
+            <td>Bignum</td>
+          </tr>
+        
+          <tr id="sfixed32">
+            <td>sfixed32</td>
+            <td>Always four bytes.</td>
+            <td>int32</td>
+            <td>int</td>
+            <td>int</td>
+            <td>int32</td>
+            <td>int</td>
+            <td>integer</td>
+            <td>Bignum or Fixnum (as required)</td>
+          </tr>
+        
+          <tr id="sfixed64">
+            <td>sfixed64</td>
+            <td>Always eight bytes.</td>
+            <td>int64</td>
+            <td>long</td>
+            <td>int/long</td>
+            <td>int64</td>
+            <td>long</td>
+            <td>integer/string</td>
+            <td>Bignum</td>
+          </tr>
+        
+          <tr id="bool">
+            <td>bool</td>
+            <td></td>
+            <td>bool</td>
+            <td>boolean</td>
+            <td>boolean</td>
+            <td>bool</td>
+            <td>bool</td>
+            <td>boolean</td>
+            <td>TrueClass/FalseClass</td>
+          </tr>
+        
+          <tr id="string">
+            <td>string</td>
+            <td>A string must always contain UTF-8 encoded or 7-bit ASCII text.</td>
+            <td>string</td>
+            <td>String</td>
+            <td>str/unicode</td>
+            <td>string</td>
+            <td>string</td>
+            <td>string</td>
+            <td>String (UTF-8)</td>
+          </tr>
+        
+          <tr id="bytes">
+            <td>bytes</td>
+            <td>May contain any arbitrary sequence of bytes.</td>
+            <td>string</td>
+            <td>ByteString</td>
+            <td>str</td>
+            <td>[]byte</td>
+            <td>ByteString</td>
+            <td>string</td>
+            <td>String (ASCII-8BIT)</td>
+          </tr>
+        
+      </tbody>
+    </table>
+  </body>
+</html>
+

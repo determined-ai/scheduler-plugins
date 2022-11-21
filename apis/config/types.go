@@ -154,3 +154,13 @@ type NodeResourceTopologyMatchArgs struct {
 
 // PreemptionTolerationArgs reuses DefaultPluginArgs.
 type PreemptionTolerationArgs schedconfig.DefaultPreemptionArgs
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// G8S8Args defines the parameters for Coscheduling plugin.
+type G8S8Args struct {
+	metav1.TypeMeta
+
+	// Asdf is a string.
+	Asdf string
+}

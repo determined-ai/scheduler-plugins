@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sleep
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sleep
+  template:
+    metadata:
+      labels:
+        app: sleep
+        ipus.graphcore.com: "1"
+    spec:
+      schedulerName: g8s8
+      containers:
+      - name: sleep
+        image: busybox
+        command: ["/bin/sleep", "infinity"]
+        imagePullPolicy: IfNotPresent

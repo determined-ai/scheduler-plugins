@@ -1,0 +1,57 @@
+cwd: .
+
+stages:
+  - custom:
+      name: creds
+      pre:
+        - sh: kubectl apply -f my-service-account.yaml
+      cmd:
+        - ./fetch-creds.sh
+        - /tmp/det-creds
+        - my-service-account
+      post:
+        - logcheck:
+            regex: successfully fetched initial token
+
+  - custom_docker:
+      name: virm
+      container_name: virm
+      run_args:
+        # options for docker run
+        - "--network=host"
+        - "-e"
+        - "GC_AGENT_IPU_FAKE_DEV=P2.2"
+        # image name
+        - "virm-agent-fake"
+        # command + args
+        - "-p"
+        - "8881"
+        - "-d"
+
+  - custom:
+      name: vipu-server
+      cwd: /tmp/devcluster/vipu-server
+      pre:
+        - sh: rm -rf /tmp/devcluster/vipu-server
+        - sh: mkdir -p /tmp/devcluster/vipu-server
+        - sh: cd /tmp/devcluster/vipu-server && vipu-server --storage-init
+      post:
+        - conncheck:
+            port: 8191
+        - sh: vipu-admin -H localhost -P 8191 create agent ag1 --host localhost --port 8881
+        - sh: vipu-admin -H localhost -P 8191 create cluster cl1 --agents ag1
+      cmd:
+        - vipu-server
+        - --ignore-agent-version
+        - --listen
+        - ":8191"
+        - -a
+        - lo
+
+  - custom:
+      name: g8s8
+      pre:
+        - sh: make build
+      cmd:
+        - ./bin/kube-scheduler
+        - --config=g8s8.yaml

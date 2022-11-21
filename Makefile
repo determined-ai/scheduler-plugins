@@ -38,8 +38,23 @@ VERSION=$(shell echo $(RELEASE_VERSION) | awk -F - '{print $$2}')
 .PHONY: all
 all: build
 
+pkg/g8s8/protos/version.pb.go: vipu-protos-1.18.0/version.proto
+	mkdir -p pkg/g8s8/protos
+	protoc --go_opt=paths=source_relative --go-grpc_out=pkg/g8s8 --go_out=. $^
+	# wtf, protoc?
+	mv vipu-protos-1.18.0/version.pb.go $@
+
+pkg/g8s8/protos/vipuuser.pb.go: vipu-protos-1.18.0/vipuuser.proto
+	mkdir -p pkg/g8s8/protos
+	protoc --go_opt=paths=source_relative --go-grpc_out=pkg/g8s8 --go_out=. $^
+	# wtf, protoc?
+	mv vipu-protos-1.18.0/vipuuser.pb.go $@
+
+.PHONY: protos
+protos: pkg/g8s8/protos/version.pb.go pkg/g8s8/protos/vipuuser.pb.go
+
 .PHONY: build
-build: build-controller build-scheduler
+build: protos build-controller build-scheduler
 
 .PHONY: build.amd64
 build.amd64: build-controller.amd64 build-scheduler.amd64
@@ -126,4 +141,4 @@ verify:
 
 .PHONY: clean
 clean:
-	rm -rf ./bin
+	rm -rf ./bin pkg/g8s8/protos/*pb.go
